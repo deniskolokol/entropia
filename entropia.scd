@@ -14,6 +14,7 @@ var p_FACTORY_SETTINGS = (
     // System
     synthdefFile:      "entropia_synts.scd",
     tempDir:           "~/tmp/SuperCollider/sounds/");
+var a_SURROUND_CONFIG = #[\VBAP4, \Ambisonic2, \Ambisonic4, \Ambisonic8];
 // Interface descriptor.
 // Based on panels, each of which consist of a collection of elements.
 // Each element either sets a param or triggers something special,
@@ -23,8 +24,7 @@ var p_INTRFACE = [
         title: "Audio settings",
         visible: true,
         params: [
-            (param: \confSurround, title: "Surround sound", element: \dropdown,
-                items: #[\VBAP4, \Ambisonic2, \Ambisonic4, \Ambisonic8]),
+            (param: \confSurround, title: "Surround sound", element: \dropdown, items: a_SURROUND_CONFIG),
             (param: \fieldDepth, title: "Aural field depth", spec: ControlSpec(0.5, 10, \lin, 0.5, 4)),
             (param: \wetBus, title: "Wet bus", element: \dropdown, items: (0..29)),
             (param: \effBus, title: "Effect bus", element: \dropdown, items: (0..29)),
@@ -44,16 +44,9 @@ var params, paramsFilename, paramsFile;
 var shutDown;
 
 // Audio.
-var wetBus = 16, effBus = 30;
 var effSynthName = \pgl1_comb;
 var synthNames = List[\pgl1_lflow, \pgl1_lfmid, \pgl1_lfmip, \pgl1_lfs];
-var synthArgs = List[
-	[\dryBus, 0, \wetBus, wetBus, \amp, 0.5, \dry, 1],
-	[\dryBus, 2, \wetBus, wetBus, \amp, 0.5, \dry, 1],
-	[\dryBus, 4, \wetBus, wetBus, \amp, 0.5, \dry, 1],
-	[\dryBus, 6, \wetBus, wetBus, \amp, 0.5, \dry, 1]
-];
-var synthCtrlArgs= List[ [\kr_ml0, 0], [\kr_mg2, 1], [\kr_mg0, 2], [\kr_ml1, 3], [\kr_mg1, 4], [\kr_mh0, 5] ]; //[\synthName, ctrl bus]
+var synthArgs, synthCtrlArgs;
 var effSynth;
 var synthList= [nil, nil, nil, nil];
 var synthCtrl= List.new;
@@ -66,12 +59,37 @@ var ccResp, nOnResp, midiSrc= 1219363690; // X-Session Pro
 var startStopSynth, setParam;
 
 // Interface.
-var win; //main window
-var wLeft= 412, wTop= 500, wWidth= 500, wHeight= 260, ctrlTop= 20, ctrlHeight= 40;
-var cvMainColor= Color.new255(210, 180, 140, 80), btColorOff=Color.new255(250, 250, 250), btColorOn=Color.new255(43, 43, 43), btColorBG = Color.new255(248, 248, 255);
-var globalFont1=Font("Helvetica", 9);
+var win, winRect=Rect(412, 500, 770, 350); //main window
+var ctrlTop=20, ctrlHeight=40;
+var globalFont1=Font("Helvetica", 9),
+    labelFont=Font("Helvetica", 9),
+    layoutHFont=Font("Helvetica", 11);
 var cvSynths, cvStreams, btSynthList= List.new, msvCtrlSwitch, pmDryBus= List.new, knWetLevel= List.new, knAmp= List.new;
 var btTask= List.new;
+var drawPanels;
+var layoutHColor=Color.new255(100, 100, 100),
+    layoutHFontColor=Color.new255(200, 200, 200),
+    panelColor=Color.grey(0.8),
+    cvMainColor=Color.grey(0.8),
+    btColorOff=Color.new255(250, 250, 250),
+    btColorOn=Color.new255(43, 43, 43),
+    btColorBG = Color.new255(248, 248, 255),
+    stringBackground = Color.grey(alpha:0.1),
+    stringColor = layoutHColor,
+    menuBackground = Color.white,
+    menuStringColor = Color.black,
+    listBackground = Color.white,
+    listStringColor = Color.black,
+    selectedStringColor = nil,
+    hiliteColor = nil,
+    sliderBackground = Color.grey(alpha:0.5),
+    numBackground = Color.white,
+    numStringColor = Color.grey(alpha:0.1),
+    numNormalColor = Color.black,
+    numTypingColor = Color.black,
+    knobColor = Color.black,
+    background = nil;
+
 
 // Streams.
 var streamList= [nil], fillStream;
@@ -118,14 +136,29 @@ if (File.type(~tempDir) == \not_found) { // error!
     ).error;
     ~tempDir = nil;
 };
+
 //fill channels list
 channels.do({ |i| chlistMono.put(i, i.asSymbol) });
 
+// synth args
+synthArgs = [
+    [\dryBus, 0, \wetBus, params[\wetBus], \amp, 0.5, \dry, 1],
+    [\dryBus, 2, \wetBus, params[\wetBus], \amp, 0.5, \dry, 1],
+    [\dryBus, 4, \wetBus, params[\wetBus], \amp, 0.5, \dry, 1],
+    [\dryBus, 6, \wetBus, params[\wetBus], \amp, 0.5, \dry, 1]];
+synthCtrlArgs = [ //[\synthName, ctrl bus]
+    [\kr_ml0, 0], [\kr_mg2, 1], [\kr_mg0, 2],
+    [\kr_ml1, 3], [\kr_mg1, 4], [\kr_mh0, 5] ];
+
+
 // INTERFACE
 //
-win = Window("PG_L1 ctrl", Rect(wLeft, wTop, wWidth, wHeight), resizable:false);
-cvSynths= CompositeView(win, Rect(5, 5, wWidth-10, ctrlHeight*synthNames.size+30)) //synth panel
-	.background_(cvMainColor);
+win = Window("PG_L1 ctrl", winRect);
+win.view.decorator = FlowLayout(win.view.bounds);
+win.layout = GridLayout();
+
+cvSynths = CompositeView().background_(cvMainColor); //synth panel
+
 StaticText(cvSynths,Rect(ctrlHeight+65, 0, 40, 25)) //synths volume
 	.string_("vol")
 	.font_(globalFont1);
@@ -182,7 +215,7 @@ synthCtrlArgs.size.do({ |i|
 		.font_(globalFont1);
 });
 // WARNING! elaborate the same interface with Grid (see help)
-msvCtrlSwitch = MultiSliderView(cvSynths, Rect(180, ctrlTop, 235, synthList.size*ctrlHeight)) // interface - synth to control buss
+msvCtrlSwitch = MultiSliderView(cvSynths, Rect(180, ctrlTop, 235, synthList.size * ctrlHeight + 10)) // interface - synth to control buss
 	.step_(1/synthCtrlArgs.size)
 	.valueThumbSize_(ctrlHeight-10)
 	.indexThumbSize_(ctrlHeight)
@@ -202,10 +235,11 @@ msvCtrlSwitch = MultiSliderView(cvSynths, Rect(180, ctrlTop, 235, synthList.size
 			})
 		});
 	});
-//stream controls
+// place it
+win.layout.addSpanning(VLayout(cvSynths), 1, 1, 2, 2);
 
-cvStreams = CompositeView(win, Rect(5, cvSynths.bounds.top+cvSynths.bounds.height+5, 250, ctrlHeight+10)) //synth panel
-	.background_(cvMainColor);
+//stream controls
+cvStreams = CompositeView().background_(cvMainColor);
 btTask.add( //task 1 - melody
 	Button(cvStreams, Rect(5, 5, 45, ctrlHeight))
 		.states_([
@@ -307,6 +341,74 @@ btTask.add(
 			}.fork(TempoClock());
 		});
 );
+// place it
+win.layout.addSpanning(VLayout(cvStreams), 5, 1, 1, 2);
+
+// Draw panels.
+drawPanels = { |win, elements|
+    var panel, panelHeight, view, element, label, paramVal, j=1;
+    elements.do { |val, i|
+        if (val[\visible]) {
+            panelHeight = 0;
+            panel = VLayout();
+            view = CompositeView().background_(panelColor);
+            view.decorator = FlowLayout(view.bounds);
+            StaticText(view, 230@20)
+            .string_(format(" % ", val[\title]))
+            .background_(layoutHColor).stringColor_(layoutHFontColor).font_(layoutHFont);
+            val[\params].do { |pm|
+                paramVal = params[pm[\param]];
+                label = pm[\title] ? pm[\param];
+                element = pm[\element].switch(
+                    \dropdown, {
+                        EZPopUpMenu(view, 200@20, label, pm[\items]).font_(layoutHFont)
+                        .setColors(stringBackground, stringColor, menuBackground, menuStringColor, background)
+                    },
+                    \list, {
+                        EZListView(view, label:label, items:pm[\items], layout: \vert)
+                        .font_(layoutHFont)
+                        // Warning! Method setColors of EZListView has bugs!
+                        // .setColors(stringBackground, stringColor, listBackground, listStringColor,
+                        // selectedStringColor, hiliteColor, background)
+                    },
+                    \slider, {
+                        EZSlider(view, 200@20, label:label, controlSpec:pm[\spec],
+                            labelWidth:50, unitWidth:0, numberWidth:30).font_(layoutHFont)
+                        .setColors(stringBackground, stringColor, sliderBackground, numBackground,
+                            numStringColor, numNormalColor, numTypingColor, knobColor, background)
+                    },
+                    \boolean, {
+                        QCheckBox(view, 200@20).font_(layoutHFont).string_(label);
+                    },
+                    nil, { // default element is EZNumber
+                        EZNumber(view, label:label, controlSpec:pm[\spec], labelWidth:100)
+                        .font_(layoutHFont)
+                        .setColors(stringBackground, stringColor, numBackground, numStringColor,
+                            numNormalColor, numTypingColor, background)
+                    }
+                );
+                panelHeight = panelHeight + element.bounds.height;
+
+                try { // set initial value and define action
+                    element.value_(pm[\items].indexOf(paramVal));
+                    element.globalAction_({ |e| params[pm[\param]] = pm[\items][e.value]});
+                } { |err|
+                    element.value_(paramVal).action_({ |e| params[pm[\param]] = e.value});
+                };
+            };
+            panel.add(view);
+            [panelHeight, win.layout.minRowHeight(1)].postln;
+            win.layout.addSpanning(panel, j, 3, // synth and streams are spanned across 1st 2 columns
+                (panelHeight / win.layout.minRowHeight(1)));
+            j = j + (panelHeight / win.layout.minRowHeight(1));
+        };
+    };
+};
+
+// Draw first column
+win.layout.setMinRowHeight(1, 60);
+drawPanels.(win, p_INTRFACE);
+
 
 // PROCEDURES
 //
@@ -373,7 +475,7 @@ nOnResp = NoteOnResponder({|src, chan, num, val|
 );
 
 //effect synth goes to channels [0,1]
-effSynth= Synth(effSynthName, [\inBus, wetBus, \outBus, effBus]);
+effSynth= Synth(effSynthName, [\inBus, params[\wetBus], \outBus, params[\effBus]]);
 //control rate synths
 synthCtrlArgs.size.do({ |i|
 	synthCtrl.add(Synth(synthCtrlArgs[i][0].asSymbol, [\outbus, synthCtrlArgs[i][1]]));
