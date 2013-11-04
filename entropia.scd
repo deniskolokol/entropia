@@ -99,7 +99,7 @@ var layoutHColor=Color.new255(100, 100, 100),
 
 // Streams.
 var streamList= [nil], fillStream;
-var arrBase= #[0, 2, 3, 6], arrDer0= #[2, 3, 6, 7];
+var arrBase = #[0, 2, 3, 6], arrDer0 = #[2, 3, 6, 7];
 
 
 // HELPER FUNCTIONS
@@ -169,16 +169,17 @@ releaseGroup = { |groupID, release=1|
 
 // set param(s) to group or synth
 setParam = { |group, parm|
-    try {s.listSendMsg(["/n_set", group[\nodeID]] ++ (parm ?? []))}
+    s.listSendMsg(["/n_set", group[\nodeID]] ++ (parm ?? []))
 };
 
 
 // broadcast params to all groups
 broadcastParam = { |parm|
-    groups.do { |g| setParam.(g, parm)};
+    groups.do { |g| if (g.isNil.not) { setParam.(g, parm) }};
 };
 
-// broadcast params to all groups
+
+// broadcast params to all .kr synths
 broadcastControl = { |parm|
     kontrols.do { |k| setParam.(k, parm)};
 };
@@ -301,16 +302,19 @@ groups.size.do({ |i| // synth switch on/off
             }
         })
     );
+
 	knAmp.add( //synths amp
         Knob(cvSynths, Rect(400, btSynthList[i].bounds.top + 5, 30, 30))
         .value_(commonArgs[commonArgs.indexOf(\amp) + 1])
         .action_({ |kn| setParam.(groups[i], [\amp, kn.value])})
     );
+
 	knAux.add( // aux level (PRE only: isn't affected neither by amp, nor by master)
         Knob(cvSynths,Rect(440, btSynthList[i].bounds.top + 5, 30, 30))
         .value_(commonArgs[commonArgs.indexOf(\aux) + 1])
         .action_({ |kn| setParam.(groups[i], [\aux, kn.value])})
     );
+
     pmOutBus.add( //dry signal bus
         PopUpMenu(cvSynths, Rect(340, btSynthList[i].bounds.top + 10, 50, 20))
         .background_(btColorBG).font_(layoutHFont).canFocus_(false)
