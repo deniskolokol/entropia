@@ -168,14 +168,14 @@ releaseGroup = { |groupID, release=1|
 
 
 // set param(s) to group or synth
-setParam = { |group, parm|
-    s.listSendMsg(["/n_set", group[\nodeID]] ++ (parm ?? []))
+setParam = { |node, parm|
+    if (node.isNil.not) { s.listSendMsg(["/n_set", node[\nodeID]] ++ (parm ?? [])) }
 };
 
 
 // broadcast params to all groups
 broadcastParam = { |parm|
-    groups.do { |g| if (g.isNil.not) { setParam.(g, parm) }};
+    groups.do { |g| setParam.(g, parm) };
 };
 
 
@@ -526,6 +526,7 @@ drawPanels = { |win, elements|
 win.layout.setMinRowHeight(1, 60);
 drawPanels.(win, p_INTRFACE);
 
+// clock panel
 cvClock = CompositeView().background_(cvMainColor);
 timeLabel = StaticText().string_("").font_(largeFont);
 cvClock.layout = VLayout(
@@ -540,6 +541,7 @@ cvClock.layout = VLayout(
     [timeLabel]
 );
 win.layout.addSpanning(VLayout(cvClock), 5, 3);
+
 
 // KEYBOARD
 //
@@ -599,7 +601,6 @@ MIDIFunc.noteOff({ |val, no| // streams on / off
 synthCtrlArgs.size.do{ |i|
     kontrols[i] = initKr.(synthCtrlArgs[i][0], krbus:synthCtrlArgs[i][1]);
 };
-
 
 {
     while {win.isClosed.not} {

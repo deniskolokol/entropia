@@ -1,4 +1,5 @@
-// ---- SYNTHS ----
+// SYNTHS
+//
 SynthDef(\entro__e__lflow, {
     arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0,
         gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2;
@@ -55,7 +56,9 @@ SynthDef(\entro__e__lfs, {
 	Out.ar(outbus, out * amp * master);
 }).add;
 
-//control synths - mod
+
+// CONTROL SYNTHS (\mod)
+//
 SynthDef(\kr_ml0, {
     arg krbus=0, att=0.1, rel=1, ca=3, cr= -3, gate=1, freq=1;
 	var env, mod;
@@ -115,6 +118,10 @@ SynthDef(\kr_mn0, {
 	Out.kr(krbus, mod * env)
 }).add;
 
+// GRANULAR SYNTHS
+//
+// bookmark
+// finish it!
 
 // SPATIALIZERS
 //
