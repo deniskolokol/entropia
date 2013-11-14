@@ -58,20 +58,21 @@ var rootNodeID;
 var initGroup, releaseGroup, initKr, setParam, broadcastParam, broadcastControl;
 
 // MIDI.
-var midiAmp, midiAux, midiNext, midiPrev, midiStream;
+var midiAmp, midiDelay, midiReverb, midiAux, midiNext, midiPrev, midiStream;
 
 // Utils and helper functions.
 var clipInc, convertTime;
 
 // Interface.
-var win, winRect=Rect(412, 500, 770, 350); //main window
+var win; //main window
 var ctrlTop=20, ctrlHeight=40;
 var globalFont1=Font("Helvetica", 9),
     labelFont=Font("Helvetica", 9),
     layoutHFont=Font("Helvetica", 11),
     largeFont=Font("Monaco", 26);
-var stStreamReport, btSynthList, msvCtrlSwitch, pmOutBus, knAux, knAmp,
-    timeLabel, cvSynths, cvStreams, cvClock;
+var stStreamReport, btSynthList, msvCtrlSwitch, pmOutBus,
+    timeLabel, cvSynths, cvStreams, cvClock,
+    knAux, knAmp, knDelay, knReverb;
 var btStream= List.new;
 var drawPanels;
 var layoutHColor=Color.new255(100, 100, 100),
@@ -275,7 +276,7 @@ kontrols = Array.fill(synthCtrlArgs.size, {nil});
 
 // INTERFACE
 //
-win = Window(s_INFO[\title], winRect);
+win = Window(s_INFO[\title], Rect(412, 500, 880, 350));
 win.view.decorator = FlowLayout(win.view.bounds);
 win.layout = GridLayout();
 
@@ -285,6 +286,8 @@ btSynthList = List.new;
 pmOutBus = List.new;
 knAux = List.new;
 knAmp = List.new;
+knDelay = List.new;
+knReverb = List.new;
 groups.size.do({ |i| // synth switch on/off
     btSynthList.add( // interface - synth on/off buttons
         Button(cvSynths, Rect(10, i * (ctrlHeight + 3) + ctrlTop, 80, ctrlHeight))
@@ -304,13 +307,23 @@ groups.size.do({ |i| // synth switch on/off
     );
 
 	knAmp.add( //synths amp
-        Knob(cvSynths, Rect(400, btSynthList[i].bounds.top + 5, 30, 30))
+        Knob(cvSynths, Rect(400, btSynthList[i].bounds.top + 5, 35, 35))
         .value_(commonArgs[commonArgs.indexOf(\amp) + 1])
         .action_({ |kn| setParam.(groups[i], [\amp, kn.value])})
     );
 
+	knDelay.add( //synths delay
+        Knob(cvSynths, Rect(440, btSynthList[i].bounds.top + 5, 35, 35))
+        .action_({ |kn| setParam.(groups[i], [\delay, kn.value])})
+    );
+
+    knReverb.add( //synths reverb
+        Knob(cvSynths, Rect(480, btSynthList[i].bounds.top + 5, 35, 35))
+        .action_({ |kn| setParam.(groups[i], [\reverb, kn.value])})
+    );
+
 	knAux.add( // aux level (PRE only: isn't affected neither by amp, nor by master)
-        Knob(cvSynths,Rect(440, btSynthList[i].bounds.top + 5, 30, 30))
+        Knob(cvSynths,Rect(520, btSynthList[i].bounds.top + 5, 35, 35))
         .value_(commonArgs[commonArgs.indexOf(\aux) + 1])
         .action_({ |kn| setParam.(groups[i], [\aux, kn.value])})
     );
@@ -328,7 +341,9 @@ groups.size.do({ |i| // synth switch on/off
 
 
 StaticText(cvSynths,Rect(405, 0, 40, 25)).string_("vol").font_(globalFont1);
-StaticText(cvSynths,Rect(445, 0, 40, 25)).string_("aux").font_(globalFont1);
+StaticText(cvSynths,Rect(445, 0, 40, 25)).string_("delay").font_(globalFont1);
+StaticText(cvSynths,Rect(485, 0, 40, 25)).string_("reverb").font_(globalFont1);
+StaticText(cvSynths,Rect(530, 0, 50, 25)).string_("aux").font_(globalFont1);
 StaticText(cvSynths,Rect(110, 0, 30, 25)).string_("---").font_(globalFont1);
 synthCtrlArgs.size.do({ |i|
 	StaticText(cvSynths,Rect(60+(ctrlHeight * 2) + ((ctrlHeight - 6) * i), 0, ctrlHeight-10, 25)) //ctrl synth labels
@@ -562,14 +577,19 @@ win.view.keyDownAction = { |view, char, modifiers, unicode, keycode|
 MIDIClient.init;
 MIDIIn.connectAll;
 midiAmp = [12, 11, 14, 15];
-midiAux = [26, 29, 36, 33];
+midiDelay = [26, 29, 36, 33];
+midiReverb = [24, 27, 31, 34];
+midiAux = [25, 28, 32, 35];
 midiNext = [43, 58, 57, 59];
 midiPrev = [46, 70, 56, 69];
 midiStream = [44, 45];
 MIDIFunc.cc({ |val, no| { knAmp[midiAmp.indexOf(no)].valueAction_(\midi.asSpec.unmap(val))}.defer }, midiAmp);
+MIDIFunc.cc({ |val, no| { knDelay[midiDelay.indexOf(no)].valueAction_(\midi.asSpec.unmap(val))}.defer }, midiDelay);
+MIDIFunc.cc({ |val, no| { knReverb[midiReverb.indexOf(no)].valueAction_(\midi.asSpec.unmap(val))}.defer }, midiReverb);
 MIDIFunc.cc({ |val, no| { knAux[midiAux.indexOf(no)].valueAction_(\midi.asSpec.unmap(val))}.defer }, midiAux);
+// Consider if any of those commented is necessary:
 //MIDIFunc.cc({ |val, no| broadcastParam.([\master, \midi.asSpec.unmap(val)]) }, 17);
-MIDIFunc.cc({ |val, no| broadcastControl.([\freq, val.linlin(0, 127, 1, 200)]) }, 17);
+//MIDIFunc.cc({ |val, no| broadcastControl.([\freq, val.linlin(0, 127, 1, 200)]) }, 17);
 MIDIFunc.noteOff({ |val, no| // next kr
     var index, value;
     {

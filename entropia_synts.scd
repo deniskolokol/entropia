@@ -1,36 +1,47 @@
 // SYNTHS
 //
 SynthDef(\entro__e__lflow, {
-    arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0,
+    arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0, delay=0, reverb=0,
         gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2;
 	var in, out, env;
     env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: done);
     // bookmark - to-do: get rid of MouseY, re-allocate it to args!
-	in = LPF.ar(
-        LFSaw.ar(mnote
-            + LinLin.kr(mod, -1, 1, 0.01, MouseY.kr(1.5, 0.02, 1)) * 100 + #[300, 301, 80, 81], 0, 0.8
-        ).mean, 2000);
-    out = Mix.ar(in) * env;
+    in = MidEQ.ar(
+        RLPF.ar(
+            LFSaw.ar(mnote + LinLin.kr(mod, -1, 1, 0.01, MouseY.kr(1.5, 0.02, 1)) * 100 + #[300, 301, 80, 81]).mean,
+            LinLin.kr(mod, -1, 1, 500, 10000), 0.3
+        ),
+        // MidEQ is following the resonant low pass
+        LinLin.kr(mod, -1, 1, 480, 9980), LinLin.kr(mod, -1, 1, 0.1, 0.5), 6
+    );
+    in = CombC.ar(in, 0.4, delay.linexp(0.001, 1, 0.001, 0.4), delay * 5);
+    in = FreeVerb.ar(in, reverb, reverb.linexp(0.001, 1, 0.5, 0.9), 0.3);
+    out = Normalizer.ar(in) * env;
 	Out.ar(auxbus, out * aux);
 	Out.ar(outbus, out * amp * master);
 }).add;
 
 SynthDef(\entro__e__lfmid, {
-    arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0,
+    arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0, delay=0, reverb=0,
         gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2;
 	var in, out, env;
     env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: done);
-	in = RLPF.ar(
-			LFSaw.ar(mnote + LinLin.kr(mod, -1, 1, 0.1, 54) + #[300, 301, 80, 81], 0, 0.8).mean,
-			LinLin.kr(mod, -1, 1, 10, 102).midicps, 0.1, 1
-		);
-    out = Mix.ar(in) * env;
+	in = MidEQ.ar(
+        RLPF.ar(
+            LFSaw.ar(mnote + LinLin.kr(mod, -1, 1, 0.1, 54) + #[300, 301, 80, 81], 0, 0.8).mean,
+            LinLin.kr(mod, -1, 1, 70, 112).midicps, 0.3, 1
+        ),
+        LinLin.kr(mod, -1, 1, 70, 95).midicps, 0.2, 8
+    );
+    in = CombC.ar(in, 0.4, delay.linexp(0.001, 1, 0.001, 0.4), delay * 5);
+    in = FreeVerb.ar(in, reverb, reverb.linexp(0.001, 1, 0.5, 0.9), 0.3);
+    out = Normalizer.ar(in) * env;
 	Out.ar(auxbus, out * aux);
 	Out.ar(outbus, out * amp * master);
 }).add;
 
 SynthDef(\entro__e__lfmip, {
-    arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0,
+    arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0, delay=0, reverb=0,
         gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2;
 	var in, out, env;
     var freqBase = 85;
@@ -39,19 +50,31 @@ SynthDef(\entro__e__lfmip, {
         LFSaw.ar(mnote + freqBase + mod.linlin(-1,1, -40, 40)),
         LinLin.kr(mod, -1, 1, 80, 30).midicps, 0.1, 1
     );
+    in = CombC.ar(in, 0.2, 0.2, delay * 3);
+    in = FreeVerb.ar(in, reverb, reverb.linexp(0.001, 1, 0.5, 0.9), 0.3);
     out = Mix.ar(in) * env;
 	Out.ar(auxbus, out * aux);
 	Out.ar(outbus, out * amp * master);
 }).add;
 
 SynthDef(\entro__e__lfs, {
-    arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0,
+    arg bufnum=0, outbus=20, auxbus=16, aux=0.1, amp=1, master=1, mod=0, mnote=0, delay=0, reverb=0,
         gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2;
 	var in, out, env;
     var freqBase = 85;
     env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: done);
-	in = LFSaw.ar(mnote + freqBase + mod.linlin(-1,1, -50, 0));
-    out = Mix.ar(in) * env;
+	in = LFSaw.ar(mnote + freqBase + mod.linlin(-1, 1, -50, 0));
+    4.do(
+        {in = AllpassN.ar(in, 0.1,
+            [
+                TRand.kr(0.01.rand, 0.1.rand, Dust.kr(0.1)),
+                TRand.kr(0.01.rand, 0.05.rand, Dust.kr(0.5))
+            ], 4)
+        });
+    in = CombC.ar(in, 0.4, delay.linexp(0.001, 1, 0.001, 0.4), delay * 5);
+    in = FreeVerb.ar(in, reverb, reverb.linexp(0.001, 1, 0.5, 0.9), 0.3);
+    in = Mix.ar(in);
+    out = in * env;
 	Out.ar(auxbus, out * aux);
 	Out.ar(outbus, out * amp * master);
 }).add;
@@ -103,7 +126,7 @@ SynthDef(\kr_mg1, {
 }).add;
 
 SynthDef(\kr_mh0, {
-    arg krbus=0, att=0.1, rel=1, ca=3, cr= -3, gate=1, freq=1;
+    arg krbus=0, att=0.1, rel=1, ca=3, cr= -3, gate=1, freq=1000;
 	var env, mod;
 	env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: 2);
     mod = HenonC.ar(freq, LFNoise0.kr(1, 0.2, 1.2), LFNoise0.kr(1, 0.15, 0.15));
@@ -138,12 +161,12 @@ SynthDef(\kr_mn0, {
 SynthDef(\entro__s__ambisonic2, {
     arg input=20, output=0, mod=1,
         gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2,
-        azimuth=0, elevation=0, elevClip=0.1pi, distance=0.2, depth=5;
+        azimuth=0, elevation=0, elevClip=0.1pi, distance=0.1, depth=2;
     var w, x, y, z, r, s, t, u, v,
-        speakerAzim = [-0.16pi, 0.16pi], speakerElev = 0, speakerDist = [0.35, 0.35],
+        speakerAzim = [-0.16pi, 0.16pi], speakerElev = 0, speakerDist = [2, 2],
         maxDist=3, scaleFlag=1,
         in, signal, env, out;
-    distance = distance.linlin(0, 2.sqrt, 0.5, depth);
+    distance = distance.linlin(0, 2.sqrt, 0.01, depth);
     azimuth = mod * 1pi;
     in = In.ar(input, 1);
     env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: done);
@@ -158,16 +181,16 @@ SynthDef(\entro__s__ambisonic2, {
 SynthDef(\entro__s__ambisonic4, {
     arg input=20, output=0, mod=1,
         gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2,
-        azimuth=0, elevation=0, elevClip=0.1pi, distance=0, depth=5;
+        azimuth=0, elevation=0, elevClip=0.1pi, distance=0.2, depth=5;
     var w, x, y, z, r, s, t, u, v,
         speakerAzim= [-0.25pi, -0.6pi, 0.6pi, 0.25pi], speakerElev= 0, speakerDist= [2, 2, 2, 2],
-        maxDist=3, scaleFlag=1,
+        maxDist=2, scaleFlag=1,
         in, signal, env, out;
     distance = distance.linlin(0, 2.sqrt, 0.5, depth);
     azimuth = mod * 1pi;
     in = In.ar(input, 1);
     env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: done);
-    signal = in * EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: done);
+    signal = in * env; // EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: done);
     #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
     out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
         azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);
