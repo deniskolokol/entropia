@@ -339,16 +339,19 @@ groups.size.do({ |i| // synth switch on/off
     );
 });
 
+StaticText(cvSynths,Rect(110, 0, 30, 25))
+.string_("---").font_(globalFont1);
 
-StaticText(cvSynths,Rect(405, 0, 40, 25)).string_("vol").font_(globalFont1);
-StaticText(cvSynths,Rect(445, 0, 40, 25)).string_("delay").font_(globalFont1);
-StaticText(cvSynths,Rect(485, 0, 40, 25)).string_("reverb").font_(globalFont1);
-StaticText(cvSynths,Rect(530, 0, 50, 25)).string_("aux").font_(globalFont1);
-StaticText(cvSynths,Rect(110, 0, 30, 25)).string_("---").font_(globalFont1);
+["vol", "delay", "reverb", "aux"].do { |label, i|
+    StaticText(cvSynths,Rect(i * 40 + 405, 0, 40, 25))
+    .string_(label).font_(globalFont1)
+};
 synthCtrlArgs.size.do({ |i|
-	StaticText(cvSynths,Rect(60+(ctrlHeight * 2) + ((ctrlHeight - 6) * i), 0, ctrlHeight-10, 25)) //ctrl synth labels
-		.string_(synthCtrlArgs[i][0].asString.replace("kr_", ""))
-		.font_(globalFont1);
+	StaticText(cvSynths, //ctrl synth labels
+        Rect(60+(ctrlHeight * 2) + ((ctrlHeight - 6) * i), 0, ctrlHeight-10, 25)
+    )
+    .string_(synthCtrlArgs[i][0].asString.replace("kr_", ""))
+    .font_(globalFont1);
 });
 
 // Main matrix
@@ -578,8 +581,8 @@ MIDIClient.init;
 MIDIIn.connectAll;
 midiAmp = [12, 11, 14, 15];
 midiDelay = [26, 29, 36, 33];
-midiReverb = [24, 27, 31, 34];
-midiAux = [25, 28, 32, 35];
+midiReverb = [25, 28, 32, 35];
+midiAux = [24, 27, 31, 34];
 midiNext = [43, 58, 57, 59];
 midiPrev = [46, 70, 56, 69];
 midiStream = [44, 45];
