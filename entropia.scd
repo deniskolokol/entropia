@@ -17,7 +17,7 @@ var p_FACTORY_SETTINGS = (
     tempDir:           "~/tmp/SuperCollider/sounds/");
 var a_BUS_POOL = [30, 53]; // lowest and highest-1 number of bus used for synths
 var a_SYNTHS = #[\entro__e__lflow, \entro__e__lfmid, \entro__e__lfmip, \entro__e__lfs];
-var a_SURROUND_CONFIG = #[\VBAP4, \Ambisonic2, \Ambisonic4, \Ambisonic8];
+var a_SURROUND_CONFIG = #[\VBAP4, \Ambisonic2, \Ambisonic4, \Ambisonic6, \Ambisonic8];
 // Interface descriptor.
 // Based on panels, each of which consist of a collection of elements.
 // Each element either sets a param or triggers something special,
@@ -118,7 +118,7 @@ initGroup = { |synth, bufnum, output, parm|
     #l, h = a_BUS_POOL;
     currBusRoute = clipInc.(currBusRoute ?? l, lo:l, hi:h);
     groupID = s.nextNodeID;
-    spatial = "entro__s__" ++ params[\confSurround].toLower; // spatializer's name
+    spatial = "entro__s__" ++ params[\confSurround].asString.toLower; // spatializer's name
 
     // collect all group args
     args = [\bufnum, bufnum,
@@ -581,7 +581,7 @@ MIDIClient.init;
 MIDIIn.connectAll;
 midiAmp = [12, 11, 14, 15];
 midiDelay = [26, 29, 36, 33];
-midiReverb = [25, 28, 32, 35];
+midiReverb = [25, 28, 35, 32];
 midiAux = [24, 27, 31, 34];
 midiNext = [43, 58, 57, 59];
 midiPrev = [46, 70, 56, 69];
