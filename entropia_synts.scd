@@ -9,10 +9,10 @@ SynthDef(\entro__e__lflow, {
     in = MidEQ.ar(
         RLPF.ar(
             LFSaw.ar(mnote + LinLin.kr(mod, -1, 1, 0.01, MouseY.kr(1.5, 0.02, 1)) * 100 + #[300, 301, 80, 81]).mean,
-            LinLin.kr(mod, -1, 1, 500, 10000), 0.3
+            LinLin.kr(mod, -1, 1, 200, 5000), 0.8
         ),
         // MidEQ is following the resonant low pass
-        LinLin.kr(mod, -1, 1, 480, 9980), LinLin.kr(mod, -1, 1, 0.1, 0.5), 6
+        LinLin.kr(mod, -1, 1, 210, 4980), LinLin.kr(mod, -1, 1, 0.4, 0.8), 6
     );
     in = CombC.ar(in, 0.4, delay.linexp(0.001, 1, 0.001, 0.4), delay * 5);
     in = FreeVerb.ar(in, reverb, reverb.linexp(0.001, 1, 0.5, 0.9), 0.3);
@@ -190,7 +190,28 @@ SynthDef(\entro__s__ambisonic4, {
     azimuth = mod * 1pi;
     in = In.ar(input, 1);
     env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: done);
-    signal = in * env; // EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: done);
+    signal = in * env;
+    #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
+    out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
+        azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);
+    Out.ar(output, out);
+}).send(s);
+
+
+SynthDef(\entro__s__ambisonic6, {
+    arg input=20, output=0, mod=1,
+        gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2,
+        azimuth=0, elevation=0, elevClip=0.1pi, distance=0.2, depth=5;
+    var w, x, y, z, r, s, t, u, v,
+        speakerAzim= [-0.17pi, -0.2pi, -0.64pi, 0.65pi, 0.28pi, 0.1pi], speakerElev= [0, 0, 0, 0, 0, 0],
+        speakerDist= [13.7, 7.7, 5.6, 4.9, 7.5, 12.7],
+        maxDist=13.7, scaleFlag=1,
+        in, signal, env, out;
+    distance = distance.linlin(0, 2.sqrt, 0.5, depth);
+    azimuth = mod * 1pi;
+    in = In.ar(input, 1);
+    env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: done);
+    signal = in * env;
     #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
     out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
         azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);
@@ -201,16 +222,16 @@ SynthDef(\entro__s__ambisonic4, {
 SynthDef(\entro__s__ambisonic8, {
     arg input=20, output=0, mod=1,
         gate=1, att=0.2, rel=1, ca=3, cr= -3, done=2,
-        azimuth=0, elevation=0, elevClip=0.1pi, distance=0, depth=5;
+        azimuth=0, elevation=0, elevClip=0.1pi, distance=0.2, depth=5;
     var w, x, y, z, r, s, t, u, v,
         speakerAzim=[-0.20pi, -0.5pi, -0.70pi, -pi, 0.70pi, 0.5pi, 0.20pi, 0pi], speakerElev=0,
-        speakerDist=[6.3, 4.7, 6, 6, 6, 4.7, 6.3, 6.3], maxDist=6.3, scaleFlag=1,
+        speakerDist=[2, 2, 2, 2, 2, 2, 2, 2], maxDist=2, scaleFlag=1,
         in, signal, env, out;
     distance = distance.linlin(0, 2.sqrt, 0.5, depth);
     azimuth = mod * 1pi;
     in = In.ar(input, 1);
     env = EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: done);
-    signal = in * EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: done);
+    signal = in * env;
     #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
     out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
         azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);
