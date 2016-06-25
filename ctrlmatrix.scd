@@ -1,208 +1,311 @@
+// test kr unit deactivate
+n = EntroUnit.new(\sr__e__pulse, 20, 0)
+n.activate([\amp, 0.5, \velocity, 0.5, \distance, 0.2])
+k = EntroUnit.new(\sr__k__sine, out:2)
+k.sendParams([\lfo, 0.5.rand, \min, 5, \max, 75]);
+k.activate
+n.mapParam(\offset, k);
+k.deactivate
+n.deactivate
+Entropia.removeAll
+// end - test kr unit deactivate
+
 (
-var win;
-var paneMatrix, paneSettings, paneSynths, paneSynth,
-    paneArSynths, paneConnections,
-    paneKrSynths, paneGrid,
-    pane;
-var synthType, synthIn, synthOut;
-var btPanic, master;
-var paneWidth, paneHeight;
-var button, buttonCheckbox, knob, slider, dropdown, compView, levelInd, sliderGrid;
-var valAsApec;
-var colorBtUp=Color.grey(0.6), colorBtDown=Color.red,
-    colorBtLabel=Color.grey(0.2), colorPane=Color.grey(0.3),
-    colorStringBg = Color.grey(alpha:0.1), colorString=Color(0.8, 0.8, 0.8);
-var clean;
-var synthsAr=["rock", "blues", "electronica"],
-    synthsKr=["sine", "saw", "lfnoise0", "lfnoise1", "lfnoise2"];
-var outBus=(0..Server.default.options.numAudioBusChannels-1),
-    internalBus=(10..Server.default.options.numAudioBusChannels-1),
-    krBus = (0..Server.default.options.numControlBusChannels-1);
-var oscResponders=["l_hand", "r_hand", "drone"];
-
-
-// interface
-win = Window("ctrl matrix", Window.screenBounds.width@Window.screenBounds.height);
-
-// helper functions
-valAsApec = { |spec|
-    [
-        spec.atFail(\minval, {0}),
-        spec.atFail(\maxval, {1}),
-        spec.atFail(\warp, {\lin}),
-        spec.atFail(\step, {0}),
-        spec.atFail(\default, {0})
-    ].asSpec
-};
-paneWidth = { |par, scale=1| (par.bounds.width * scale - 6).floor };
-paneHeight = { |par, scale=1| (par.bounds.height * scale - 6).floor };
-button = { |par, label, action, scaleH=1, scaleW=1|
-    Button(par, paneWidth.(par, scaleW)@paneHeight.(par, scaleH)).states_([
-        [label, colorBtLabel, colorBtUp]
-    ])
-    .font_(Font("Helvetica", 12))
-    .action_({ |bt| action.(bt.value) })
-    .canFocus_(false);
-};
-buttonCheckbox = { |par, label, action, value, scaleH=1, scaleW=1|
-    Button(par, paneWidth.(par, scaleW)@paneHeight.(par, scaleH)).states_([
-        [label, colorBtLabel, colorBtUp],
-        [label, colorString, colorBtDown]
-    ])
-    .value_(value)
-    .action_({ |bt| action.(bt.value) })
-    .font_(Font("Helvetica", 12))
-    .canFocus_(false);
-};
-knob = { |par, label, spec, action, default=0, layout='vert', scaleW=1, scaleH=1|
-    var knobWidth=paneWidth.(par, scaleW), knobHeight=paneHeight.(par, scaleH);
-    if (layout != 'vert') {
-        knobWidth = paneWidth.(par, scaleW) - 10;
-        knobHeight = paneHeight.(par, scaleH);
-    };
-    EZKnob(par, knobWidth@knobHeight, label, spec,
-        { |ez| action.(ez.value) }, default,
-        layout: layout
-    ).font_(Font("Helvetica", 12));
-};
-slider = { |par, label, spec, action, default=0, layout='horz', scale=1|
-    var labelWidth=0, numberWidth=45;
-    var bounds=paneWidth.(par)@20;
-    if (label.isNil.not) { labelWidth = label.size * 5 };
-    if (layout == 'horz') {
-        bounds = (paneWidth.(par, scale))@20;
-        numberWidth = 30;
-    } {
-        bounds = 30@(paneHeight.(par, scale))
-    };
-    EZSlider(par, bounds, label, spec, { |ez| action.(ez.value) }, default,
-        labelWidth: labelWidth, numberWidth: numberWidth, layout: layout)
-    .font_(Font("Helvetica", 12))
-    .setColors(stringColor: Color.white)
-};
-dropdown = { |par, label, items, scale=1|
-    var labelWidth=0;
-    if (label.isNil.not) { labelWidth = label.size * 9};
-    EZPopUpMenu(par, paneWidth.(par, scale)@20, label, items, labelWidth:labelWidth)
-        .font_(Font("Helvetica", 11))
-        .setColors(colorStringBg, colorString)
-};
-compView = { |par, color, scaleW=1, scaleH=1|
-    var vw;
-    if (color.isNil) { color = colorPane };
-    vw = CompositeView(par,
+var colorBtUp=Color.grey(0.6),
+    colorBtDown=Color.blue,
+    colorBtLabel=Color.grey(0.2),
+    colorStringBg=Color.grey(alpha:0.1),
+    colorString=Color(0.8, 0.8, 0.8);
+var color=Color.grey(0.2),
+    highlighted=Color.grey(0.8), // Color.white
+    transparent=Color.grey(alpha:0.01),
+    font=Font("Monaco", 10),
+    fontSmall=Font("Monaco", 8),
+    fontLarge=Font("Monaco", 12),
+    fontGiant=Font("Monaco", 20),
+    fontColor=Color.grey(0.9);
+var paneWidth = { |par, scale=1| (par.bounds.width * scale - 6).floor };
+var paneHeight = { |par, scale=1| (par.bounds.height * scale - 6).floor };
+var compView = { |par, color, scaleW=1, scaleH=1|
+    if (color.isNil) { color = transparent };
+    CompositeView(par,
         paneWidth.(par, scaleW)@paneHeight.(par, scaleH)
     ).background_(color);
-    vw.decorator = FlowLayout(vw.bounds);
+};
+var compViewFlow = { |par, color, margin, gap, scaleW=1, scaleH=1|
+    var vw;
+    if (color.isNil) { color = transparent };
+    vw = compView.(par, color, scaleW, scaleH);
+    vw.decorator = FlowLayout(vw.bounds, margin ? 1@1, gap ? 1@1);
     vw
 };
-levelInd = { |par, default=0, scaleW=1, scaleH=1|
+var knob = { |par, label, spec, action, initVal, layout='vert', bounds|
+    if (initVal.isNil) { initVal = spec.default };
+    EZKnob(par, bounds, " " ++ label.asString, spec,
+        { |ez| action.(ez.value) },
+        initVal, layout: layout
+    )
+    .setColors(numBackground:Color.grey, numNormalColor:Color.yellow)
+    .font_(font)
+};
+var slider = { |par, label, spec, action, initVal, layout='horz', scaleW=1, scaleH=1, numberWidth=45, margin|
+    var labelWidth=0;
+    var bounds=paneWidth.(par)@20;
+    margin = margin ? 1@1;
+    if (label.isNil.not) { labelWidth = label.size * 5 };
+    bounds = (paneWidth.(par, scaleW))@(paneHeight.(par, scaleH));
+    if (layout == 'horz') { numberWidth = 30 } { numberWidth = 45 };
+    if (initVal.isNil) { initVal = spec.default };
+    EZSlider(
+        par, bounds, label, spec,
+        { |ez| action.(ez.value) },
+        initVal,
+        labelWidth: labelWidth, numberWidth: numberWidth, layout: layout, margin: margin
+    )
+    .setColors(numBackground:Color.grey, numNormalColor:Color.yellow)
+    .font_(font)
+};
+var dropdown = { |par, label, items, action, initVal=0, scale=1|
+    var labelWidth=0;
+    if (label.isNil.not) { labelWidth = label.size * 9};
+    EZPopUpMenu(par,
+        bounds: paneWidth.(par, scale)@20,
+        label: label,
+        items: items,
+        globalAction: action,
+        initVal: initVal,
+        labelWidth: labelWidth
+    )
+    .font_(Font("Helvetica", 11))
+};
+var button = { |par, label, action, scaleH=1, scaleW=1, colorLabel, colorBg|
+    colorLabel = colorLabel ? colorBtLabel;
+    colorBg = colorBg ? colorBtUp;
+    Button(par, paneWidth.(par, scaleW)@paneHeight.(par, scaleH)).states_([
+        [label, colorLabel, colorBg]
+    ])
+    .font_(Font("Helvetica", 12))
+    .action_({ |bt| action.(bt.value) })
+    .canFocus_(false);
+};
+var levelInd = { |par, default=0, scaleW=1, scaleH=1|
     LevelIndicator(par, paneWidth.(par, scaleW)@paneHeight.(par, scaleH))
-        .background_(Color.clear)
-        .value_(default).warning_(0.7).critical_(0.9)
+    .background_(Color.clear)
+    .value_(default)
+    .warning_(0.7)
+    .critical_(0.9)
+    .drawsPeak_(true)
 };
 
-// panels
-paneMatrix = CompositeView(win,
-    win.bounds.width@win.bounds.height
-).background_(Color.grey(0.7));
-paneMatrix.decorator = FlowLayout(paneMatrix.bounds);
+// make GUI for a single audio rate unit
+var makeGuiAr = { |unit, parent|
+    var ctrl, modul;
+    var scaleW = 244 / parent.bounds.width;
+    var panelMain = compViewFlow.(parent, scaleW:0.25);
+    var panelLeft = compViewFlow.(panelMain, scaleW:0.9);
+    var panelRight = compViewFlow.(panelMain, scaleW:0.13);
+    var panelLeftTop = compViewFlow.(panelLeft, scaleH:0.9);
+    var panelLeftBottom = compViewFlow.(panelLeft, scaleH:0.13);
+    var panelLeftTopLeft = compViewFlow.(panelLeftTop, scaleW:0.82);
+    var panelLeftTopRight = compViewFlow.(panelLeftTop, scaleW:0.2);
+    var panel;
+    var synthList, envSet;
 
-paneSettings = compView.(paneMatrix, scaleW: 0.2, scaleH: 0.4);
-master = slider.(paneSettings, "Master", \db.asSpec,
-    { |sl| s.volume.volume = sl.value }, 1);
-btPanic = button.(paneSettings, "PANIC", { |val| val.postln}, 0.2, 0.25);
+    // [parent.bounds.width, panelMain.bounds.width].postln;
 
-paneArSynths = compView.(paneMatrix, scaleW: 0.8, scaleH: 0.4);
-paneConnections = compView.(paneArSynths, scaleH: 0.15, color: Color.grey(0.7));
-// .ar synth panel and controls
-paneSynths = compView.(paneArSynths, scaleH: 0.85);
-8.do { |i|
-    var paneKnobs, paneSlid;
-    paneSynth = compView.(paneSynths, scaleW: 0.125);
-    // synth
-    pane = compView.(paneSynth, scaleW: 0.9);
-    synthType = dropdown.(pane, items:synthsAr);
-    synthIn = dropdown.(pane, "I", items:internalBus, scale: 0.5);
-    synthOut = dropdown.(pane, "O", items:outBus, scale: 0.5);
-    buttonCheckbox.(pane, "ON", { |val| val.postln }, scaleW: 0.5, scaleH: 0.1);
-    button.(pane, "RESET", { |val| val.postln }, scaleW: 0.5, scaleH: 0.1);
-    paneKnobs = compView.(pane, scaleW: 0.6, scaleH: 0.7);
-    [\none, \none, \none].do { |key| // Dummies
-        // XXX dynamic labels deending on the synth type
-        knob.(paneKnobs, action: { |k| k.postln }, scaleH: 0.33);
+    // synth name
+    synthList = EntroSynthDefs.params.keys.asArray;
+    panel = compViewFlow.(panelLeftTopLeft, scaleH:0.1);
+    dropdown.(panel,
+        items: all {:Entropia.synthnameShort(y), y <- synthList},
+        initVal: synthList.indexOf(unit.synthname),
+        action: { |dd| dd.postln },
+    );
+
+    // inbus and outbus
+    panel = compViewFlow.(panelLeftTopLeft, scaleH:0.1);
+    dropdown.(panel, "In",
+        items: (0..29), // XXX temp - should be param in Entropia
+        initVal: unit.inbus,
+        action: { |dd| unit.inbus = dd.value },
+        scale: 0.5
+    );
+    dropdown.(panel, "O",
+        items: (0..9), // XXX temp - should be param in Entropia
+        initVal: unit.outbus,
+        action: { |dd| unit.outbus = dd.value },
+        scale: 0.5
+    );
+
+    // envelope
+    unit.randomizeEnv;
+    panel = compViewFlow.(panelLeftTopLeft, scaleH:0.5);
+    EnvelopeView(panel, panel.bounds.width@(panel.bounds.height*0.5))
+        .drawLines_(true)
+        .selectionColor_(Color.red)
+        .drawRects_(true)
+        .resize_(5)
+        .step_(0.05)
+        .strokeColor_(Color.white)
+        .background_(transparent)
+        .action_({arg b; [b.index, b.value].postln})
+        .thumbSize_(5)
+        .setEnv(unit.env);
+
+    // XXX - finish it
+    // effects
+    unit.insert.do { |i| // XXX
+        slider.(panel, i, \unipolar.asSpec,
+            { |v| v.postln },
+            layout: \horz,
+            scaleH: 0.2
+        );
     };
-    paneSlid = compView.(pane, scaleW: 0.4, scaleH: 0.7);
-    slider.(paneSlid, "mul", \unipolar.asSpec,
-        { |sl| sl.postln }, 0, \vert, scaleH: 0.5, scaleW: 0.8);
-    // level meter
-    pane = compView.(paneSynth, scaleW: 0.11);
-    levelInd.(pane, 0.5);
 
-};
-
-paneKrSynths = compView.(paneMatrix, scaleW: 0.2, scaleH: 0.6);
-// .kr synth panel and controls
-8.do { |i|
-    paneSynth = compView.(paneKrSynths, scaleH: 0.125);
-    pane = compView.(paneSynth, scaleW: 0.95);
-    synthType = dropdown.(pane, items:synthsKr, scale: 0.25);
-    synthIn = dropdown.(pane, "in", items:oscResponders, scale: 0.3);
-    slider.(pane, "", \unipolar.asSpec,
-        { |sl| sl.postln }, 0, scale: 0.45);
-    [\none, \none, \none].do { |key| // Dummies
-        // XXX dynamic labels depending on the synth type
-        knob.(pane, action: { |k| k.postln }, layout: \line2, scaleW: 0.3, scaleH: 0.5);
+    // first three params
+    panel = compViewFlow.(panelLeftTopLeft, scaleH:0.4);
+    // params, whose indexes bigger than 8, unavailable in GUI
+    // 1-4 controllable params: available for external control via MIDI
+    unit.params[..3*2-1].pairsDo { |parmName, val|
+        knob.(
+            panel, // XXX TEMP
+            parmName, Entropia.specs[parmName],
+            { |v| unit.sendParams([parmName, v]) },
+            val,
+            bounds:50@90
+        );
     };
-    [\ON, \OFF].do { |label|
-        buttonCheckbox.(pane, label, { |val| val.postln }, scaleW:0.12, scaleH:0.5);
+
+    // last param
+    unit.params[6..7].pairsDo { |parmName, val|
+        slider.(
+            panelLeftTopRight,
+            parmName, Entropia.specs[parmName],
+            { |v| unit.sendParams([parmName, v]) },
+            val,
+            layout: \vert
+        );
     };
-    levelInd.(paneSynth, 0.5, scaleW:0.05);
+    // 5-8 modulatable params: can be modulated by .kr
+    unit.params[4*2..8*2-1].pairsDo { |parmName, val|
+        button.(panelLeftBottom, parmName.asString[..5],
+            { |bt, nt| bt.postln },
+            scaleW: 0.275
+        );
+    };
+
+    // level indicator
+    levelInd.(panelRight, 0.4);
+
+    // TODO
+    // double click on the area:
+    // unit.activate([\amp, 0.5, \velocity, 0.5, \distance, 0.2]);
 };
 
-paneGrid = compView.(paneMatrix, scaleW: 0.8, scaleH: 0.6);
-sliderGrid = MultiSliderView(paneGrid, (paneGrid.bounds.width-10)@(paneGrid.bounds.height-10))
-    .valueThumbSize_(50)
-    .indexThumbSize_(30)
-    .colors_(colorBtUp, colorBtDown)
-    .step_(1 / 8)
-    .value_(Array.fill(8 * 4, { 1 })) // size is set automatically when you set the value
-    .action_({ |msv| msv.value.postln };
-);
-
-win.view.keyDownAction = { arg view, char, modifiers, unicode, keycode;
-    [char, modifiers, unicode, keycode].postln;
-    case
-    { keycode == 8 } { // C
-        if (modifiers == 262144) { // Ctrl + C
-            clean.();
-        }
-    }
-    { keycode == 3 } { // F
-        if (modifiers == 262144) { // Ctrl + F
-            if (win.bounds == Window.screenBounds) {
-                win.endFullScreen
-            } {
-                win.fullScreen
-            }
-        }
-    }
-    { keycode == 53 } { // ESC
-        if (win.bounds == Window.screenBounds) {
-            win.endFullScreen
-        }
-    }
+var makeGuiKr = { |unit, parent|
+    // XXX
 };
 
-//win.fullScreen.front;
-win.front;
-
-// clean everything on exit
-clean = {
-    win.close;
+var makeGui = { |unit, parent|
+    unit.type.switch(
+        \ar, {
+            makeGuiAr.(unit, parent)
+        },
+        \kr, {
+            makeGuiKr.(unit, parent)
+    })
 };
+
+var arUnits = [
+    EntroUnit.new(\sr__e__pulse, 20, 0),
+    EntroUnit.new(\sr__e__plane, 20, 0),
+    EntroUnit.new(\sr__e__sawy, 20, 0),
+    EntroUnit.new(\sr__e__dust, 20, 0),
+];
+w = Window('matrix', Rect(700, 800, 1000, 300));
+w.view.decorator = FlowLayout(w.bounds);
+arUnits.do { |unit|
+    makeGui.(unit, w, 0.25);
+};
+w.front;
 
 CmdPeriod.doOnce({
-    clean.();
+    w.close;
+    n.remove;
 });
 )
+
+
+n = EntroUnit.new(\sr__e__pulse, 20, 0)
+
+n.params // key value pairs of params in the order of appearance
+n.activate([\amp, 0.5, \velocity, 0.5, \distance, 0.2])
+n.sendParams([\offset, 36, \amp, 0.4])
+
+// map to .kr
+k = EntroUnit.new(\sr__k__sine, out:2)
+k.sendParams([\min, 20, \max, 80]); // == k.setParams([\mul, 30, \add, 50])
+k.sendParams([\lfo, 0.2, \min, 10, \max, 55]);
+k.activate
+
+n.mapParam(\offset, k);
+n.resetParam(\offset);
+n.params
+
+s.sendMsg("/c_getn", 0, 1);
+q = OSCFunc({ |msg, time, addr, recvPort|
+    msg.postln;
+}, '/c_setn');
+s.sendMsg("/g_queryTree", 1002); // to fill out synth name
+l = OSCFunc({ |msg, time, addr, recvPort|
+    msg.postln;
+}, '/g_queryTree.reply');
+
+
+// map to .ar
+m = EntroUnit.new(\sr__e__growl, out:0);
+m.activate([\amp, 1, \velocity, 0.5, \distance, 0.2]);
+n.mapParam(\azimuth, m);
+
+k.deactivate
+n.deactivate
+
+k.remove
+n.remove
+m.remove
+q.remove
+l.remove
+
+s.queryAllNodes
+Entropia.units
+Entropia.removeAll
+Entropia.rootNode
+
+// TODO:
+// before assigning control bus, check if it's output exceeds parameter's minval and maxval,
+// and send scaled values instead of assign "cN"
+
+
+// g = s.nextNodeID;
+// x = s.nextNodeID;
+// y = s.nextNodeID;
+// z = s.nextNodeID;
+// u = 4; // route bus
+// s.sendMsg("/g_new", g);
+// s.sendBundle(0.1,
+//     // add synth to new group's head
+//     ["/s_new", \sr__e__pulse, x, 0, g, \route, u, \velocity, 0, \att, 0.5],
+//     // add inserts to new group's head
+//     ["/s_new", \sr__i__delay, y, 3, x, \inbus, u, \route, u],
+//     ["/s_new", \sr__i__delayfeed, z, 3, x, \inbus, u, \route, u],
+//     // add spatializer to new group's tail
+//     ["/s_new", \sr__s__ambisonic2, s.nextNodeID, 1, g, \distance, 0.2, \route, u, \outbus, 0],
+// );
+//
+// s.sendMsg("/n_set", g, \azimuth, -0.5pi);
+// s.sendMsg("/n_set", g, \param1, 0.8);
+//
+// s.sendMsg("/n_set", y, \amp, 0);
+// s.sendMsg("/n_set", z, \amp, 0);
+//
+// s.sendMsg("/n_set", g, \gate, 0, \rel, 0.5);
