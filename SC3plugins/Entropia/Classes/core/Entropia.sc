@@ -1,23 +1,51 @@
+// Environment module.
+//
+// Bus numbers
+//     external output:
+//         0..(numOutputBusChannels-1)
+//
+//     in-out routing for granular synths:
+//         numOutputBusChannels .. (numOutputBusChannels + arUnitsNum)
+//
+//     available for internal routings in groups (routePool):
+//         (numOutputBusChannels + arUnitsNum) .. numAudioBusChannels-1
+
 Entropia {
     var thisVersion = "0.0.0";
     var thisState = \pre_alpha;
 
+    classvar <arUnitsNum=4; // default number of .ar synths
+    classvar <insertsNum=4; // default number of inserts in each group
     classvar <specs, <params; // params
-    classvar <depth, <inbus, <outbus, <routePool, <route; // audio conf
+    classvar <depth, <inbus, <outbus, <routePool; // audio conf
     classvar <startTrigID;
     classvar <buffer;
     classvar <rootNode;
     classvar <speakers, <maxDist; // speakers setup
+    classvar <inserts; // inserts setup
     classvar <>units;
     classvar <srv;
 
 	*initClass {
+        // server related
         Class.initClassTree(Server);
-        StartUp.add { // TODO! Move it to the class that contains EntroUnits, when done
+        StartUp.add {
             Server.default = Server.internal;
             srv = Server.default;
             srv.options.numInputBusChannels = 4;
             srv.options.numOutputBusChannels = 10;
+            srv.options.numAudioBusChannels = max(
+                128, // minimum num of buses
+                // or
+                arUnitsNum // max number of units
+                    * ( // multiplied by
+                        insertsNum // number of inserts
+                        + 1 // plus one bus for routing to spatializer
+                    )
+                + srv.options.numInputBusChannels // plus input buses
+                + srv.options.numOutputBusChannels // plus output buses
+            );
+
             srv.options.memSize = 262144;
             srv.options.blockSize = 512;
 
@@ -28,6 +56,11 @@ Entropia {
                 rootNode = (ar: srv.nextNodeID, kr: srv.nextNodeID);
                 srv.sendMsg("/g_new", rootNode[\ar], 0, 1);
                 srv.sendMsg("/g_new", rootNode[\kr], 0, 1);
+
+                routePool = [
+                    srv.options.numOutputBusChannels + arUnitsNum,
+                    srv.options.numAudioBusChannels - 1
+                ];
 
                 // load synth defs
                 Class.initClassTree(EntroSynthDefs);
@@ -68,15 +101,15 @@ Entropia {
         buffer = 0; // default buffer
         startTrigID = 60;
 
-        // Bus numbers available for internal routings in groups.
-        routePool = [20, 51];
-
         // speakers setup (distance, azimuth and elevation)
         speakers = List[
             (dist: 1, azim: -0.25pi, elev: 0pi),
             (dist: 1, azim: -0.75pi, elev: 0pi),
         ];
         maxDist = 1; // distance to the farthest speaker
+
+        // default inserts setup
+        inserts = Array.fill(insertsNum, {\sr__i__pass});
     }
 
     *synthnameShort { |sn|
@@ -126,21 +159,31 @@ Entropia {
         }
     }
 
-    // increments `in` until `in + step` reaches `hi`, then resets to `lo`.
+    *setInsert { |name, index|
+        // adds a new insert to all units
+        units.do { |u| u.addInsert(name, index) };
+    }
+
+    *resetInsert { |index|
+        // reset insert to units (changes it to 'pass')
+        ^setInsert(\sr__i__pass, index)
+    }
+
     *clipInc { |in=0, step=1, lo=0, hi=inf|
+        // increments `in` until `in + step` reaches `hi`, then resets to `lo`.
         ^(((in ? 0) + step).clip(lo, hi) % hi).clip(lo, hi)
     }
 
-    // calculates \mul and \add based on \min and \max
     *minMax2mulAdd { |min, max|
+        // calculates \mul and \add based on \min and \max
         var mul, add;
         mul = max.absdif(min) * 0.5;
         add = min + mul;
         ^[mul, add]
     }
 
-    // calculates \mul and \add based on \min and \max
     *mulAdd2minMax { |mul, add|
+        // calculates \mul and \add based on \min and \max
         var min, max;
         min = mul.abs.neg + add;
         max = min + (mul.abs * 2);
@@ -154,6 +197,17 @@ Entropia {
         ^Entropia.clipInc(current, 1, lo, hi);
     }
 
+    *nextRoutePool {
+        var lo, hi, next, current= -1;
+        current = (
+            all {: u.route[u.route.size-1][\bus], u <- units,
+                u.isActive, u.type == \ar} ? []
+        ).sort.last;
+        #lo, hi = routePool;
+        next = Entropia.clipInc(current, 1, lo, hi);
+        ^(next..(next+insertsNum));
+    }
+
     *nextTrigID {
         var current=(all {: u.trigID, u <- units, u.isActive} ? []).sort.last;
         ^Entropia.clipInc(current, 1, startTrigID);
@@ -164,6 +218,7 @@ Entropia {
     }
 
     *sendBundle { |msg, time=0.1|
+        msg.do { |m| m.postln };
         srv.listSendBundle(time, msg);
     }
 

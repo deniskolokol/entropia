@@ -20,7 +20,7 @@ EntroSynthDefs {
         // ELECTRONIC SYNTHS
         //
         SynthDef(\sr__e__pulse, {
-            arg bufnum=0, inbus=30, route=20, trigID=80,
+            arg bufnum=0, inbus=30, route=20,
                 amp=1, attenuate=0.1, gate=1, att=1, rel=1, ca=3, cr= -3,
                 ax=0.1, ay=0.1, az=0.1, azimuth= -0.5pi, distance=0.5, velocity=0.5,
                 offset=36, cutoff=0;
@@ -36,15 +36,14 @@ EntroSynthDefs {
             // Envelope.
             out = signal * EnvGen.kr(
                 Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: 2);
-            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(out));
             Out.ar(route, out);
         }).send(s);
 
         SynthDef(\sr__e__plane, {
-            arg bufnum=0, inbus=30, route=20, trigID=80, freq=65,
-            amp=1, attenuate=0.1, gate=1, att=1, rel=1, ca=3, cr= -3,
-            ax=0.1, ay=0.1, az=0.1, azimuth= -0.5pi, distance=0.5, velocity=0.5,
-            offset=36, cutoff=0, rq=0.1;
+            arg bufnum=0, inbus=30, route=20,
+                amp=1, attenuate=0.1, gate=1, att=1, rel=1, ca=3, cr= -3,
+                ax=0.1, ay=0.1, az=0.1, azimuth= -0.5pi, distance=0.5, velocity=0.5,
+                offset=36, cutoff=0, rq=0.1, freq=65;
             var in, out, signal;
             // Synthesis.
             in = LFSaw.ar((1..5) * freq, abs(velocity * 2), velocity)
@@ -60,15 +59,14 @@ EntroSynthDefs {
             // Envelope.
             out = signal * EnvGen.kr(
                 Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: 2);
-            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(out));
             Out.ar(route, out);
         }).send(s);
 
         SynthDef(\sr__e__sawy, {
-            arg bufnum=0, inbus=30, route=20, trigID=80,
-            amp=1, attenuate=0.05, gate=1, att=1, rel=1, ca=3, cr= -3,
-            azimuth= -0.5pi, distance=0.5, elevation=0, velocity=0.5,
-            offset=36, cutoff= -0.9, rq=0.5, scope=12;
+            arg bufnum=0, inbus=30, route=20,
+                amp=1, attenuate=0.05, gate=1, att=1, rel=1, ca=3, cr= -3,
+                azimuth= -0.5pi, distance=0.5, elevation=0, velocity=0.5,
+                offset=36, cutoff= -0.9, rq=0.5, scope=12;
             var note, in, out, signal;
             // Conversion.
             note = DegreeToKey.kr(bufnum, elevation.linlin(-0.5pi, 0.5pi, 0, scope), 12, 1, offset);
@@ -83,16 +81,15 @@ EntroSynthDefs {
             // Envelope.
             out = signal * EnvGen.kr(
                 Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: 2);
-            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(out));
             Out.ar(route, out);
         }).send(s);
 
 
         SynthDef(\sr__e__dust, {
-            arg bufnum=0, inbus=30, route=20, trigID=80,
-            amp=1, attenuate=0.05, gate=1, att=1, rel=1, ca=3, cr= -3,
-            azimuth= -0.5pi, distance=0.5, elevation=0, velocity=0.5,
-            offset=36, cutoff=1000, rq=0.5, scope=12;
+            arg bufnum=0, inbus=30, route=20,
+                amp=1, attenuate=0.05, gate=1, att=1, rel=1, ca=3, cr= -3,
+                azimuth= -0.5pi, distance=0.5, elevation=0, velocity=0.5,
+                offset=36, cutoff=1000, rq=0.5, scope=12;
             var note, in, out, signal;
 
             // XXX - adapt this!
@@ -118,15 +115,14 @@ EntroSynthDefs {
             // Envelope.
             out = signal * EnvGen.kr(
                 Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: 2);
-            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(out));
             Out.ar(route, out);
         }).send(s);
 
         SynthDef(\sr__e__wind, {
-            arg bufnum=0, inbus=30, route=20, trigID=80,
-            amp=1, attenuate=0.05, gate=1, att=1, rel=1, ca=3, cr= -3,
-            azimuth= -0.5pi, distance=0.5, elevation=0, velocity=0.5,
-            offset=36, cutoff=1000, rq=0.5, scope=12;
+            arg bufnum=0, inbus=30, route=20,
+                amp=1, attenuate=0.05, gate=1, att=1, rel=1, ca=3, cr= -3,
+                azimuth= -0.5pi, distance=0.5, elevation=0, velocity=0.5,
+                offset=36, cutoff=1000, rq=0.5, scope=12;
             var in, out, signal;
             var fbase, shift;
             // Conversion.
@@ -149,25 +145,26 @@ EntroSynthDefs {
             // Envelope.
             out = signal * EnvGen.kr(
                 Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: 2);
-            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(out));
             Out.ar(route, out);
         }).send(s);
 
 
         // EFFECTS
         //
+        SynthDef(\sr__i__pass, {
+            arg bufnum=0, routeIn=20, routeOut=30, level=1;
+            // Simple pass through.
+            Out.ar(routeOut, InFeedback.ar(routeIn, 1) * level);
+        }).send(s);
+
         SynthDef(\sr__i__delay, {
-            arg bufnum=0, inbus=30, route=20, trigID=80,
-            amp=0, attenuate=0.05, gate=1, att=1, rel=1, ca=3, cr= -3,
-            azimuth= -0.5pi, distance=0.5, elevation=0, velocity=0.5,
-            param1=0, param2=0;
-            var in, out, signal;
+            arg bufnum=0, routeIn=20, routeOut=30, level=1,
+                maxdelaytime=0.3, delaytime=0.3, decaytime=3;
+            var in, fx, dry, wet;
             // Pass through.
-            in = InFeedback.ar(inbus, 1);
-            signal = AllpassC.ar(in, param1, param1*1.2, 3, amp);
-            // Envelope.
-            out = signal * EnvGen.kr(Env.adsr(att, 0.1, 1, rel, curve:[ca, cr]), gate: gate, doneAction: 2);
-            Out.ar(route, out);
+            in = InFeedback.ar(routeIn, 1);
+            fx = AllpassC.ar(in, maxdelaytime, delaytime, decaytime);
+            ReplaceOut.ar(routeOut, (fx*level) + (in*(1-level)));
         }).send(s);
 
         // SPATIALIZERS
@@ -176,7 +173,7 @@ EntroSynthDefs {
         //   since \rel param is sent to both Gen synth and Spatializer.
         //
         SynthDef(\sr__s__ambisonic2, {
-            arg route=20, outbus=0, gate=1, rel=1,
+            arg route=20, outbus=0, gate=1, rel=1, trigID=80,
             azimuth= -0.5pi, elevation=0, elevClip=0.01pi, distance=0, depth=5,
             speakerAzim= #[-0.25pi, -0.75pi], speakerElev= #[0, 0], speakerDist= #[2, 2], maxDist=2;
             var w, x, y, z, r, s, t, u, v, scaleFlag=1,
@@ -190,6 +187,11 @@ EntroSynthDefs {
                 distance.linlin(0.01, depth, 10000, 1000),
                 0.5);
             signal = in * EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: 2);
+
+            // sending signal's amplitude for tracking right before spatializing
+            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(signal));
+
+            // spatializing
             #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
             out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
                 azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);
@@ -197,7 +199,7 @@ EntroSynthDefs {
         }).send(s);
 
         SynthDef(\sr__s__ambisonic4, {
-            arg route=20, outbus=0, gate=1, rel=1,
+            arg route=20, outbus=0, gate=1, rel=1, trigID=80,
             azimuth= -0.5pi, elevation=0, elevClip=0.01pi, distance=0, depth=5,
             speakerAzim= #[-0.25pi, -0.75pi, 0.75pi, 0.25pi], speakerElev= #[0, 0, 0, 0],
             speakerDist= #[2, 2, 2, 2], maxDist=2;
@@ -212,6 +214,11 @@ EntroSynthDefs {
                 distance.linlin(0.5, depth, 10000, 1000),
                 0.5);
             signal = in * EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: 2);
+
+            // sending signal's amplitude for tracking right before spatializing
+            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(signal));
+
+            // spatializing
             #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
             out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
                 azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);
@@ -219,7 +226,7 @@ EntroSynthDefs {
         }).send(s);
 
         SynthDef(\sr__s__ambisonic6, {
-            arg route=20, outbus=0, gate=1, rel=1,
+            arg route=20, outbus=0, gate=1, rel=1, trigID=80,
             azimuth= -0.5pi, elevation=0, elevClip=0.01pi, distance=0, depth=5,
             speakerAzim= #[-0.25pi, -0.5pi, -0.75pi, 0.75pi, 0.5pi, 0.25pi], speakerElev=[0, 0, 0, 0, 0, 0],
             speakerDist= #[2, 2, 2, 2, 2, 2], maxDist=2;
@@ -234,6 +241,11 @@ EntroSynthDefs {
                 distance.linlin(0.5, depth, 10000, 1000),
                 0.5);
             signal = in * EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: 2);
+
+            // sending signal's amplitude for tracking right before spatializing
+            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(signal));
+
+            // spatializing
             #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
             out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
                 azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);
@@ -241,7 +253,7 @@ EntroSynthDefs {
         }).send(s);
 
         SynthDef(\sr__s__ambisonic8, {
-            arg route=20, outbus=0, gate=1, rel=1,
+            arg route=20, outbus=0, gate=1, rel=1, trigID=80,
             azimuth= -0.5pi, elevation=0, elevClip=0.01pi, distance=0, depth=5,
             speakerAzim= #[-0.25pi, -0.5pi, -0.75pi, 1pi, 0.75pi, 0.5pi, 0.25pi, 0],
             speakerElev= #[0, 0, 0, 0, 0, 0, 0, 0],
@@ -257,6 +269,11 @@ EntroSynthDefs {
                 distance.linlin(0.5, depth, 10000, 1000),
                 0.5);
             signal = in * EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: 2);
+
+            // sending signal's amplitude for tracking right before spatializing
+            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(signal));
+
+            // spatializing
             #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
             out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
                 azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);
@@ -264,7 +281,7 @@ EntroSynthDefs {
         }).send(s);
 
         SynthDef(\sr__s__ambisonic10, {
-            arg route=20, outbus=0, gate=1, rel=1,
+            arg route=20, outbus=0, gate=1, rel=1, trigID=80,
             azimuth= -0.5pi, elevation=0, elevClip=0.01pi, distance=0, depth=5,
             speakerAzim= #[-0.15, -0.25pi, -0.5pi, -0.75pi, 1pi, 0.75pi, 0.5pi, 0.25pi, 0.15pi, 0],
             speakerElev= #[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -280,6 +297,11 @@ EntroSynthDefs {
                 distance.linlin(0.5, depth, 10000, 1000),
                 0.5);
             signal = in * EnvGen.kr(Env.cutoff(rel * 2, 1, \sin), gate: gate, doneAction: 2);
+
+            // sending signal's amplitude for tracking right before spatializing
+            SendTrig.kr(Impulse.kr(30), trigID, Amplitude.kr(signal));
+
+            // spatializing
             #w, x, y, z, r, s, t, u, v = FMHEncode1.ar(signal, azimuth, elevation.clip2(elevClip), distance);
             out = FMHDecode1.ar1(w, x, y, z, r, s, t, u, v,
                 azimuth: speakerAzim, elevation: speakerElev, distance: speakerDist, maxDist:maxDist, scaleflag:scaleFlag);

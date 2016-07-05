@@ -1,7 +1,7 @@
 EntroUnit {
     var <>synthname;
     var <>inbus, <route, <>outbus;
-    var <>params, <>env, <>insert;
+    var <>params, <>env;
     var <>active;
     var <>bufnum;
 
@@ -31,12 +31,10 @@ EntroUnit {
         if (type.isNil) {
             Error("Cannot establish synth type based on its name: %.".format(synthname)).throw;
         };
-        spatial = "sr__s__ambisonic" ++ Entropia.speakers.size.asString;
         params = Entropia.getDefaultParams(type);
         bufnum = 0;
         active = false;
         env = this.setEnv;
-        insert = #[\reverb, \delay, \conv, \dist];
 
 		Entropia.add(this); // add unit to conf
     }
@@ -161,17 +159,51 @@ EntroUnit {
         };
     }
 
-    prepareInsertMsg {
-        // server message for inserting effect synth into the group
-        ^nil
+    prepareInsertMsg { |name, newNode, targetNode, action, index|
+        // Insert's route (input) comes from pool.
+        // Insert's outbus is the next insert's (or spatial synth's) route.
+        ^["/s_new", name,
+            newNode, action, targetNode,
+            \routeIn, route[index][\bus],
+            \routeOut, route[index+1][\bus]
+        ]
     }
 
-    prepareSpatialMsg {
+    addInsert { |name, i|
+        // Inserts effect synth to `i` position in group.
+        // Updates routing table.
+        var msg, newNode = Entropia.nextNode();
+        if (this.isActive && route.isNil.not) {
+            msg = this.prepareInsertMsg(name, newNode, route[i][\node], 4, i);
+            route[i] = merge(route[i], (name: name, node: newNode), { |a, b| b });
+            Entropia.sendMessage(msg)
+        }
+    }
+
+    getInsertMsg {
+        // Server message for inserting effect synth into the group.
+        // Adds insert messages starting from `route`s tail,
+        // ignoring the last element (spatial synth).
+        var msg = Array.fill(route.size-1, {nil});
+        (route.size-2..0).do { |i|
+            msg[i] = this.prepareInsertMsg(route[i][\name],
+                newNode: route[i][\node],
+                targetNode: node,
+                action: 0, index: i);
+        };
+        ^msg
+    }
+
+    getSpatialMsg {
+        // Places spatializer to group's tail.
+        // In/out for spatial synth is the last element in `route`.
         var msg;
-        spatialNode = Entropia.nextNode();
+        spatialNode = route.last[\node];
         msg = ["/s_new", spatial,
-            spatialNode, 1, node, // spatializer goes to group's tail
-            \route, route, \outbus, outbus
+            spatialNode, 1, node,
+            \route, route.last[\bus],
+            \outbus, outbus,
+            \trigID, trigID
         ]
         ++ [\depth, Entropia.depth, \maxDist, Entropia.maxDist]
         ++ [\speakerAzim, $[] ++ Entropia.speakersAzim ++ [$]]
@@ -180,14 +212,14 @@ EntroUnit {
         ^msg
     }
 
-    prepareSynthMsg {
+    getSynthMsg {
+        // Places generator to a new group's head.
         var msg;
         synthNode = Entropia.nextNode();
         msg = ["/s_new", synthname,
-            synthNode, 0, node, // generator goes to a new group's head
-            \trigID, trigID,
+            synthNode, 0, node,
             \inbus, inbus,
-            \route, route,
+            \route, route.first[\bus],
             \bufnum, bufnum,
         ];
         msg = msg ++ params;
@@ -195,23 +227,44 @@ EntroUnit {
     }
 
     groupInit {
-        route = Entropia.nextRouteBus;
-        Entropia.sendBundle([
+        var pool = Entropia.nextRoutePool;
+        var initBundle;
+        route = Array.fill(pool.size, nil);
+        // inserts
+        Entropia.inserts.do { |name, i|
+            route[i] = (
+                bus: pool[i],
+                node: Entropia.nextNode(),
+                name: name
+            )
+        };
+        // spatializer
+        route[route.size-1] = (
+            bus: pool.last,
+            node: Entropia.nextNode(),
+            name: spatial
+        );
+        initBundle = List[
             ["/error", 0], // turn errors off locally
             ["/g_new", node, 0, Entropia.rootNode[type]],
-            this.prepareSpatialMsg(),
-            this.prepareSynthMsg()
-        ]);
+        ];
+        initBundle.add(this.getSpatialMsg);
+        this.getInsertMsg.do { |msg|
+            initBundle.add(msg);
+        };
+        initBundle.add(this.getSynthMsg);
+        Entropia.sendBundle(initBundle.asArray);
     }
 
     controlInit {
+        // Places a stack of controls to the root's group tail.
         Entropia.sendMessage(["/s_new", synthname,
-            node, 1, Entropia.rootNode[type], // stack controls to the root's group tail
+            node, 1, Entropia.rootNode[type],
             \trigID, trigID,
             \inbus, inbus,
             \outbus, outbus,
             \bufnum, bufnum,
-        ] ++ params).postln;
+        ] ++ params);
     }
 
     groupRemove { |release|
@@ -222,6 +275,7 @@ EntroUnit {
     }
 
     activate { |parm| // list of [key, value] pairs
+        spatial = ("sr__s__ambisonic" ++ Entropia.speakers.size.asString).asSymbol;
         this.setParams(parm);
         if (this.active) {
             ^node
