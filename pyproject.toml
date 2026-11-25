@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Taichi-based physics engine for particle/object simulation in calibrated space, with OSC in and out"
 readme = "README.md"
 authors = [
-    { name = "deniskolokol", email = "dkolokol@gmail.com" }
+    { name = "deniskolokol" }
 ]
 requires-python = ">=3.13,<3.14"
 dependencies = [
