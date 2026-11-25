@@ -1,0 +1,28 @@
+[project]
+name = "entropia"
+version = "0.1.0"
+description = "Taichi-based physics engine for particle/object simulation in calibrated space, with OSC in and out"
+readme = "README.md"
+authors = [
+    { name = "deniskolokol", email = "dkolokol@gmail.com" }
+]
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "ipdb>=0.13.13",
+    "ipython>=9.19.1",
+    "matplotlib>=3.11.2",
+    "python-osc>=1.9.0,<2.0.0",
+    "taichi>=1.7.4",
+]
+
+[project.scripts]
+entropia = "entropia.app:main"
+
+[build-system]
+requires = ["uv_build>=0.13.9,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
